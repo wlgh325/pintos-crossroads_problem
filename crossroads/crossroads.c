@@ -116,17 +116,17 @@ void vehicle_func(){
 
         printf("%c : %d, %d\n", temp_name[0], path[source][dest][i].row, path[source][dest][i].col) ;
         // 교차로 제어
-        if ( (path[source][dest][i].row == 2 && path[source][dest][i].col == 5 ) || 
-            path[source][dest][i].row == 4 && path[source][dest][i].col == 1 || 
-            path[source][dest][i].row == 5 && path[source][dest][i].col == 4 ){
+        if ( ( path[source][dest][i].row == 2 && path[source][dest][i].col == 5 ) || 
+            ( path[source][dest][i].row == 4 && path[source][dest][i].col == 1 ) || 
+            ( path[source][dest][i].row == 5 && path[source][dest][i].col == 4 ) ){
                 // A->B일 때, B->C, C->A만 이동 가능
                 if( original_source == 'A' && original_dest == 'B' ){
                     for(j=0; j<vehicle_num; j++){
                         if( !strcmp(vehicle_list[j].vehicle, temp_name))
                             continue;
                         else{
-                            if(vehicle_list[j].source == 'A' && vehicle_list[j].dest == 'B' || vehicle_list[j].source == 'B' && vehicle_list[j].dest == 'C' || 
-                            vehicle_list[j].source == 'C' && vehicle_list[j].dest == 'A' || vehicle_list[j].source == 'B' && vehicle_list[j].dest == 'A'){
+                            if( ( vehicle_list[j].source == 'A' && vehicle_list[j].dest == 'B' ) || ( vehicle_list[j].source == 'B' && vehicle_list[j].dest == 'C' ) || 
+                            ( vehicle_list[j].source == 'C' && vehicle_list[j].dest == 'A' ) || ( vehicle_list[j].source == 'B' && vehicle_list[j].dest == 'A' ) ){
                                 continue;
                             }
                             else{
@@ -143,7 +143,8 @@ void vehicle_func(){
                         if( !strcmp(vehicle_list[j].vehicle, temp_name))
                             continue;
                         else{
-                            if(vehicle_list[j].source == 'A' && vehicle_list[j].dest == 'C' || vehicle_list[j].source == 'C' && vehicle_list[j].dest == 'A'){
+                            if( ( vehicle_list[j].source == 'A' && vehicle_list[j].dest == 'C' ) || ( vehicle_list[j].source == 'C' && vehicle_list[j].dest == 'A' ) ||
+                            ( vehicle_list[j].source == 'B' && vehicle_list[j].dest == 'A' ) ){
                                 continue;
                             }
                             else{
@@ -160,7 +161,7 @@ void vehicle_func(){
                         if( !strcmp(vehicle_list[j].vehicle, temp_name))
                             continue;
                         else{
-                            if(vehicle_list[j].source == 'B' && vehicle_list[j].dest == 'A' || vehicle_list[j].source == 'A' && vehicle_list[j].dest == 'B'){
+                            if( ( vehicle_list[j].source == 'B' && vehicle_list[j].dest == 'A' ) || ( vehicle_list[j].source == 'A' && vehicle_list[j].dest == 'B' ) ){
                                 continue;
                             }
                             else{
@@ -177,9 +178,9 @@ void vehicle_func(){
                         if( !strcmp(vehicle_list[j].vehicle, temp_name))
                             continue;
                         else{
-                            if(vehicle_list[j].source == 'B' && vehicle_list[j].dest == 'C' || vehicle_list[j].source == 'C' && vehicle_list[j].dest == 'A' ||
-                            vehicle_list[j].source == 'A' && vehicle_list[j].dest == 'B' || vehicle_list[j].source == 'A' && vehicle_list[j].dest == 'C' ||
-                            vehicle_list[j].source == 'C' && vehicle_list[j].dest == 'B'){
+                            if( ( vehicle_list[j].source == 'B' && vehicle_list[j].dest == 'C' ) || ( vehicle_list[j].source == 'C' && vehicle_list[j].dest == 'A' )||
+                            ( vehicle_list[j].source == 'A' && vehicle_list[j].dest == 'B' ) || ( vehicle_list[j].source == 'A' && vehicle_list[j].dest == 'C' ) ||
+                            ( vehicle_list[j].source == 'C' && vehicle_list[j].dest == 'B' ) ){
                                 continue;
                             }
                             else{
@@ -208,6 +209,7 @@ void vehicle_func(){
     finish_check ++;
     thread_exit();
 }
+
 
 struct source_to_dest* insert_vehicle(char ** argv, int param_size){
     int i=0;
@@ -242,11 +244,53 @@ void print_map(){
 }
 
 bool is_at_intersection(int source, int dest, int i){
-    if(path[source][dest][i].row >= 2 && path[source][dest][i].row <= 4 ){
-        if(path[source][dest][i].col >= 2 && path[source][dest][i].col <= 4 ){
-            return true;
+    int temp_i;
+    
+    // I로 둘러 싸인 9칸 중에서
+    // I를 제외한 5칸에 대해서만
+    // 교차로로 인식한다.
+    // I는 교차로를 빠져나가는 곳으로
+    // 빠져 나가면, 이제 다른 차들이 진입할 수 있기 때문이다.
+    
+    // XXXXXXX
+    // XXXXXXX
+    //   I-I
+    // -------
+    //   I-I
+    // XX - XX
+    // XX - XX
+    
+    // (2,2) -> (2,1) or (3,2)
+    if( path[source][dest][i].row == 2 && path[source][dest][i].col == 2 ){
+        temp_i = i + 1;
+        if( ( path[source][dest][temp_i].row == 2 && path[source][dest][temp_i].col == 1 ) || ( path[source][dest][temp_i].row == 3 && path[source][dest][temp_i].col == 2 ) ){
+            return false;
+        }
+    }
+
+    // (2,4) -> (2,5)
+    if( path[source][dest][i].row == 2 && path[source][dest][i].col == 4 ){
+        temp_i = i + 1;
+        if( path[source][dest][temp_i].row == 2 && path[source][dest][temp_i].col == 5 ){
+            return false;
+        }
+    }
+
+    // (4,4) -> (4,5)
+    if( path[source][dest][i].row == 4 && path[source][dest][i].col == 4 ){
+        temp_i = i + 1;
+        if( path[source][dest][temp_i].row == 4 && path[source][dest][temp_i].col == 5 ){
+            return false;
         }
     }
     
-    return false;
+    // (4,2) -> (5,2) or (4,1)
+    if( path[source][dest][i].row == 4 && path[source][dest][i].col == 2 ){
+        temp_i = i + 1;
+        if( ( path[source][dest][temp_i].row == 5 && path[source][dest][temp_i].col == 2 ) || ( path[source][dest][temp_i].row == 4 && path[source][dest][temp_i].col == 1 ) ){
+            return false;
+        }
+    }
+
+    return true;
 }
