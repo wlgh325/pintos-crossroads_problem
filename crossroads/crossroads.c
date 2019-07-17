@@ -22,11 +22,12 @@
 
 static struct source_to_dest *vehicle_list;
 char map_draw[7][7];
-struct semaphore * n, * s;
-struct semaphore *control_creating_thread;
+struct semaphore * n = NULL, * s = NULL;
+struct semaphore * control_creating_thread = NULL;
+struct semaphore * control_behind_vehicle = NULL;
 
 int vehicle_index = 0;
-int vehicle_num;
+int vehicle_num = 0;
 int finish_check = 0;
 int param_size;
 int priority_num = 1;
@@ -90,8 +91,9 @@ void vehicle_func(){
     int original_source, original_dest;
     int i, j, temp_i;
     char * temp_name = thread_name();
-    int temp;
     int index;
+    bool flag = false;
+
 
     index = get_index(temp_name);
     printf("index : %d\n", index);
@@ -112,19 +114,40 @@ void vehicle_func(){
     
     // draw map
     map_draw[path[source][dest][0].row][path[source][dest][0].col] = vehicle_list[index].vehicle[0];
-    
-    timer_sleep(100); //1초 동안 block
+
     sema_up(control_creating_thread);
+    timer_sleep(100); //1초 동안 block
 
     while(! (path[source][dest][i].row == -1 && path[source][dest][i].col == -1)){
         temp_i = i;
 
+        if(flag == false){
+            if(map_flag[path[source][dest][temp_i].row][path[source][dest][temp_i].col] == 1){
+                sema_down(control_behind_vehicle);
+                printf("%c : ########\n", temp_name[0]);
+            }
+        }
+        else if(flag == true){
+            printf("%c : fdsfsfsf\n", temp_name[0]);
+            sema_up(control_behind_vehicle);
+            flag = false;
+        }
+
+        
         // draw vehicle
         map_draw[path[source][dest][temp_i].row][path[source][dest][temp_i].col] = temp_name[0];
-        temp_i = i - 1;
-        map_draw[path[source][dest][temp_i].row][path[source][dest][temp_i].col] = ' ';
+        
+        // set flag
+        // flag 1 : using map
+        // flag 0 : not using map
+        map_flag[path[source][dest][temp_i-1].row][path[source][dest][temp_i-1].col] = 0;
+        map_flag[path[source][dest][temp_i].row][path[source][dest][temp_i].col] = 1;
         
         // remove vehicle
+        temp_i = i - 1;
+        map_draw[path[source][dest][temp_i].row][path[source][dest][temp_i].col] = ' ';
+
+        // map redraw
         if(path[source][dest][temp_i].row == 3){
             map_draw[path[source][dest][temp_i].row][path[source][dest][temp_i].col] = '-';
         }
@@ -154,8 +177,9 @@ void vehicle_func(){
                             else{
                                 printf("in sema1\n");
                                 sema_down(n);
-                                printf("escape %c\n", temp_name[0]);
+                                flag = false;
                                 thread_set_priority(PRI_MAX);
+                                flag = true;
                                 break;
                             }
                         }
@@ -174,8 +198,9 @@ void vehicle_func(){
                             else{
                                 printf("in sema2\n");
                                 sema_down(n);
-                                printf("escape %c\n", temp_name[0]);
+                                flag = false;
                                 thread_set_priority(PRI_MAX);
+                                flag = true;
                                 break;
                             }
                         }
@@ -191,10 +216,11 @@ void vehicle_func(){
                                 continue;
                             }
                             else{
-                                printf("in sema3\n");
+                                printf("%c : in sema3\n", temp_name[0]);
                                 sema_down(n);
-                                printf("escape %c\n", j, temp_name[0]);
+                                flag = false;
                                 thread_set_priority(PRI_MAX);
+                                flag = true;
                                 break;
                             }
                         }
@@ -214,8 +240,9 @@ void vehicle_func(){
                             else{
                                 printf("in sema4\n");
                                 sema_down(n);
-                                printf("escape %c\n", temp_name[0]);
+                                flag = false;
                                 thread_set_priority(PRI_MAX);
+                                flag = true;
                                 break;
                             }
                         }
@@ -224,7 +251,7 @@ void vehicle_func(){
         }
         
         // 교차로에서 빠져 나올 때
-        if( !is_at_intersection(source, dest, i) ){
+        if( !is_at_intersection(source, dest, i) && n->value == 0){
             printf("sema up!!\n");
             //printf("s : %d\n", s->value);
             sema_up(n);
@@ -238,6 +265,10 @@ void vehicle_func(){
     
     // path의 끝에 도달한 vehicle 제거
     map_draw[path[source][dest][i].row][path[source][dest][i].col] = ' ';
+    
+    // 마지막 위치 flag 제거
+    map_flag[path[source][dest][i].row][path[source][dest][i].col] = 0;
+
     printf("finished!\n");
     finish_check ++;
     thread_exit();
@@ -248,7 +279,13 @@ struct source_to_dest* insert_vehicle(char ** argv, int param_size){
     int i=0;
     int j=0;
 
-    vehicle_num = param_size / 3;
+    char *token, *save_ptr;
+
+    for (token = strtok_r(argv[1], ":", &save_ptr); token != NULL; token = strtok_r(NULL, ":", &save_ptr)){
+        vehicle_num++;
+    }
+
+    //vehicle_num = param_size / 3;
     struct source_to_dest * vehicle_list = (struct source_to_dest*) malloc(sizeof(struct source_to_dest)*vehicle_num);	
 
     for(i=0; i<param_size; i++){
@@ -259,7 +296,7 @@ struct source_to_dest* insert_vehicle(char ** argv, int param_size){
      
         j += 4;
     }
-
+    
     return vehicle_list;
 }
 
@@ -368,15 +405,20 @@ void initialize(){
     int i;
     printf("!!!!\n");
 
+    control_creating_thread = (struct semaphore*)malloc(sizeof(struct semaphore)*1);
+    printf("!!!!\n");
+    control_behind_vehicle = (struct semaphore*)malloc(sizeof(struct semaphore)*1);
+
     s = (struct semaphore*)malloc(sizeof(struct semaphore)*1);
     n = (struct semaphore*)malloc(sizeof(struct semaphore)*1);
-    control_creating_thread = (struct semaphore*)malloc(sizeof(struct semaphore)*1);
+
 
     printf("!!!!\n");
     sema_init(s, 1);
     sema_init(n, 0);
     sema_init(control_creating_thread, 1);
-    
+    sema_init(control_behind_vehicle, 0);
+
     printf("!!!!\n");
     a_list = (struct source_list *)malloc(sizeof(struct source_list)*1);
     b_list = (struct source_list *)malloc(sizeof(struct source_list)*1);

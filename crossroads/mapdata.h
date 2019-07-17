@@ -10,5 +10,6 @@
 
 extern const char map_draw_default[7][7];
 extern const struct position path[3][3][10];
+extern char map_flag[7][7];
 
 #endif /* __PROJECTS_PROJECT1_MAPDATA_H__ */
